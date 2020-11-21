@@ -60,9 +60,6 @@ void loop()
   // Get the reading from the ADC
   unsigned int waterLevel = adcRead(0);
 
-  // Delay
-  delay(100);
-
   // reads in the water level and displays it
   displayWaterLevel(waterLevel);
 
@@ -147,5 +144,5 @@ void TempLCD(){
   lcd.print("Humidity: ");
   lcd.print(DHT.humidity);
   lcd.print("%");
-  delay(2000);
+  delay(1000);
 }
