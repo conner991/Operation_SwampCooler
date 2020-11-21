@@ -1,8 +1,8 @@
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <LiquidCrystal.h>
-#include <Adafruit_Sensor.h>
+//#include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include <SimpleDHT.h>
+//#include <SimpleDHT.h>
 #include <dht.h>
 
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
@@ -36,9 +36,10 @@ void displayWaterLevel(unsigned int waterLevel);
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //Activates lcd
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2); //Activates lcd
 dht DHT;
 #define dht_apin 8
+void TempLCD();
 
 void setup()
 {
@@ -65,17 +66,9 @@ void loop()
   // reads in the water level and displays it
   displayWaterLevel(waterLevel);
 
-  int chk = DHT.read11(dht_apin);
-  lcd.setCursor(0, 0);
-  lcd.print("Temp: ");
-  lcd.print(DHT.temperature);
-  lcd.print((char)223);
-  lcd.print("C");
-  lcd.setCursor(0, 1);
-  lcd.print("Humidity: ");
-  lcd.print(DHT.humidity);
-  lcd.print("%");
-  delay(2000);
+  //Displays temp/hhum on lcd
+  TempLCD();
+ 
 }
 
 void adcInit()
@@ -141,4 +134,18 @@ void displayWaterLevel(unsigned int waterLevel)
 
   // Delay
   delay(1000);
+}
+
+void TempLCD(){
+  int chk = DHT.read11(dht_apin);
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(DHT.temperature);
+  lcd.print((char)223);
+  lcd.print("C");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(DHT.humidity);
+  lcd.print("%");
+  delay(2000);
 }
