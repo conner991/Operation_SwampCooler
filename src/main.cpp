@@ -3,6 +3,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <SimpleDHT.h>
+#include <dht.h>
 
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
 volatile unsigned char *myADCSRB = (unsigned char *)0x7B;
@@ -34,6 +35,10 @@ void displayWaterLevel(unsigned int waterLevel);
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
 
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+dht DHT;
+#define dht_apin A0
+
 void setup()
 {
   // set up the ADC
@@ -42,6 +47,9 @@ void setup()
 
   // set PB7 to output lights
   *ddrB = 0xF0;
+
+  lcd.begin(16, 2);
+
 }
 
 void loop()
@@ -54,6 +62,20 @@ void loop()
 
   // reads in the water level and displays it
   displayWaterLevel(waterLevel);
+
+
+  int chk = DHT.read11(dht_apin); 
+  lcd.setCursor(0,0); 
+  lcd.print("Temp: ");
+  lcd.print(DHT.temperature);
+  lcd.print((char)223);
+  lcd.print("C");
+  lcd.setCursor(0,1);
+  lcd.print("Humidity: ");
+  lcd.print(DHT.humidity);
+  lcd.print("%");
+  delay(2000);
+
 }
 
 void adcInit()
