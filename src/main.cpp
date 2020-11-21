@@ -3,6 +3,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <SimpleDHT.h>
+#include <dht.h>
 
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
 volatile unsigned char *myADCSRB = (unsigned char *)0x7B;
@@ -34,12 +35,10 @@ void displayWaterLevel(unsigned int waterLevel);
 // Global Variables
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
-LiquidCrystal lcd(3, 4, 5, 6, 7, 8);
-const int pinDHT11 = 2;
-SimpleDHT11 dht11; //instantiates the SimpleDHT11 Object class to variable dht11
-float temperatureC = 0.0;
-float temperatureF = 0.0;
-float humidity = 0.0;
+
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //Activates lcd
+dht DHT;
+#define dht_apin A0
 
 void setup()
 {
@@ -50,51 +49,33 @@ void setup()
 
   // set PB7 to output lights
   *ddrB = 0xF0;
+
+  lcd.begin(16, 2);
 }
 
 void loop()
 {
 
-  //Local data array
-  byte data[40] = {0};
-  if (dht11.read2(pinDHT11, &temperatureC, &humidity, data))
-  {
-    Serial.print("Read DHT11 failed");
-    return;
-  }
+  // Get the reading from the ADC
+  unsigned int waterLevel = adcRead(0);
 
-  Serial.print("Sample RAW Bits: ");
-  for (int i = 0; i < 40; i++)
-  {
-    Serial.print((int)data[i]);
-    if (i > 0 && ((i + 1) % 4) == 0)
-    {
-      Serial.print(' ');
-    }
-  }
+  // Delay
+  //delay(100);
 
-  Serial.println("");
-  //°F = °C x 9/5 + 32.
-  temperatureF = temperatureC * 9.0 / 5.0 + 32.0;
-  Serial.print("Sample OK: ");
-  Serial.print(temperatureC);
-  Serial.print("°C, ");
-  Serial.print(temperatureF);
-  Serial.print("°F, ");
-  Serial.print(humidity);
-  Serial.println("%");
+  // reads in the water level and displays it
+  displayWaterLevel(waterLevel);
 
-  // DHT11 sampling rate is 1HZ.
-  delay(1000);
-
-  //   // Get the reading from the ADC
-  //   unsigned int waterLevel = adcRead(0);
-  //
-  //   // Delay
-  //   //delay(100);
-  //
-  //   // reads in the water level and displays it
-  //   displayWaterLevel(waterLevel);
+  int chk = DHT.read11(dht_apin);
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(DHT.temperature);
+  lcd.print((char)223);
+  lcd.print("C");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(DHT.humidity);
+  lcd.print("%");
+  delay(2000);
 }
 
 void adcInit()
