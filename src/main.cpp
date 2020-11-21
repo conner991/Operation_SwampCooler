@@ -35,7 +35,8 @@ void displayWaterLevel(unsigned int waterLevel);
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //Activates lcd
 dht DHT;
 #define dht_apin A0
 
