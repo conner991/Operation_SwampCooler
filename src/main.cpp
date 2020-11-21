@@ -35,10 +35,9 @@ void displayWaterLevel(unsigned int waterLevel);
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
 
-
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //Activates lcd
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 dht DHT;
-#define dht_apin A0
+#define dht_apin 8
 
 void setup()
 {
@@ -59,11 +58,10 @@ void loop()
   unsigned int waterLevel = adcRead(0);
 
   // Delay
-  //delay(100);
+  delay(100);
 
   // reads in the water level and displays it
   displayWaterLevel(waterLevel);
-
 
   int chk = DHT.read11(dht_apin); 
   lcd.setCursor(0,0); 
