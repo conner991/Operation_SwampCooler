@@ -71,7 +71,7 @@ void setup()
   digitalWrite(ENABLE, LOW); // enable off
 
   // set up the ADC
-  adcInit();
+  //adcInit();
   Serial.begin(9600);
   lcd.begin(16, 2);
 
@@ -92,7 +92,7 @@ void loop()
   if (buttonState%2 == 1){
     Serial.println("System is enabled");
   // Get the reading from the ADC
-  unsigned int waterLevel = adcRead(0);
+  //unsigned int waterLevel = adcRead(0);
 
   // reads in the water level and displays it//
   displayWaterLevel(waterLevel);
@@ -134,6 +134,49 @@ void tempFan()
     }
   }
 }
+
+void tempFan()
+{
+  if (DHT.temperature > 23.00)
+  {
+    digitalWrite(ENABLE, HIGH);
+    // set pin 5 high, turn on fan
+    //*portE |= 0x08;
+    if (!fan_on)
+    {
+      Serial.println("High temperature - turn on fan");
+      fan_on = true;
+    }
+  }
+  else
+  {
+    digitalWrite(ENABLE, LOW);
+    // set pin 5 low, turn off fan
+    //*portE &= 0xF7;
+    if (fan_on)
+    {
+      Serial.println("Low temperature - turn off fan");
+      fan_on = false;
+    }
+  }
+}
+
+// static bool measureTempHumid()
+// {
+//   static unsigned long measurementTimestamp = millis();
+//
+//   /* Measure once every four seconds. */
+//   if (millis() - measurementTimestamp > 3000ul)
+//   {
+//     if (DHT.measure(DHT.temperature, DHT.humidity) == true)
+//     {
+//       measurementTimestamp = millis();
+//       return true;
+//     }
+//   }
+//
+//   return false;
+// }
 
 void adcInit()
 {
