@@ -1,8 +1,8 @@
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <LiquidCrystal.h>
-#include <Adafruit_Sensor.h>
+//#include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include <SimpleDHT.h>
+//#include <SimpleDHT.h>
 #include <dht.h>
 
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
