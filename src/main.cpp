@@ -71,7 +71,7 @@ void setup()
   digitalWrite(ENABLE, LOW); // enable off
 
   // set up the ADC
-  //adcInit();
+  adcInit();
   Serial.begin(9600);
   lcd.begin(16, 2);
 
@@ -92,13 +92,14 @@ void loop()
   if (buttonState%2 == 1){
     Serial.println("System is enabled");
   // Get the reading from the ADC
-  //unsigned int waterLevel = adcRead(0);
+  unsigned int waterLevel = adcRead(0);
 
   // reads in the water level and displays it//
   displayWaterLevel(waterLevel);
   tempFan();
 
-
+  //Displays temp/hum on lcd
+  //TempLCD();
   }
   else{
     Serial.println("System is disabled");
@@ -134,49 +135,6 @@ void tempFan()
     }
   }
 }
-
-void tempFan()
-{
-  if (DHT.temperature > 23.00)
-  {
-    digitalWrite(ENABLE, HIGH);
-    // set pin 5 high, turn on fan
-    //*portE |= 0x08;
-    if (!fan_on)
-    {
-      Serial.println("High temperature - turn on fan");
-      fan_on = true;
-    }
-  }
-  else
-  {
-    digitalWrite(ENABLE, LOW);
-    // set pin 5 low, turn off fan
-    //*portE &= 0xF7;
-    if (fan_on)
-    {
-      Serial.println("Low temperature - turn off fan");
-      fan_on = false;
-    }
-  }
-}
-
-// static bool measureTempHumid()
-// {
-//   static unsigned long measurementTimestamp = millis();
-//
-//   /* Measure once every four seconds. */
-//   if (millis() - measurementTimestamp > 3000ul)
-//   {
-//     if (DHT.measure(DHT.temperature, DHT.humidity) == true)
-//     {
-//       measurementTimestamp = millis();
-//       return true;
-//     }
-//   }
-//
-//   return false;
-// }
 
 void adcInit()
 {
@@ -223,11 +181,11 @@ void displayWaterLevel(unsigned int waterLevel)
     Serial.println("Water Level: LOW");
     Serial.println(waterLevel);
     *portB = 0x40;
-    digitalWrite(ENABLE, LOW); //turns off motor if running
-    lcd.setCursor(0, 0); //changes lcd screen
-    lcd.print("Water level: "); //changes lcd screen
-    lcd.setCursor(0, 1); //changes lcd screen
-    lcd.print("LOW             "); //changes lcd screen
+    digitalWrite(ENABLE, LOW);
+    lcd.setCursor(0, 0);
+    lcd.print("Water level: ");
+    lcd.setCursor(0, 1);
+    lcd.print("LOW             ");
   }
   // Idle State = Green LED
   else
@@ -235,9 +193,8 @@ void displayWaterLevel(unsigned int waterLevel)
     Serial.println("Water Level: Okay");
     Serial.println(waterLevel);
     *portB = 0x20;
+    int chk = DHT.read11(dht_apin);
 
-    //changes lcd screen
-    int chk = DHT.read11(dht_apin); 
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Temp: ");
@@ -255,7 +212,7 @@ void displayWaterLevel(unsigned int waterLevel)
   delay(1000);
 }
 
-/*void TempLCD()
+void TempLCD()
 {
   int chk = DHT.read11(dht_apin);
   lcd.setCursor(0, 0);
@@ -268,4 +225,4 @@ void displayWaterLevel(unsigned int waterLevel)
   lcd.print(DHT.humidity);
   lcd.print("%");
   delay(1000);
-}*/
+}
