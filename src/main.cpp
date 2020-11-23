@@ -19,31 +19,59 @@ volatile unsigned char *portF = (unsigned char *)0x31;
 volatile unsigned char *ddrF = (unsigned char *)0x30;
 volatile unsigned char *pinF = (unsigned char *)0x2F;
 
-volatile unsigned char *portK = (unsigned char *)0x108;
-volatile unsigned char *ddrK = (unsigned char *)0x107;
-volatile unsigned char *pinK = (unsigned char *)0x106;
+volatile unsigned char *portE = (unsigned char *)0x2E;
+volatile unsigned char *ddrE = (unsigned char *)0x2D;
+volatile unsigned char *pinE = (unsigned char *)0x2C;
 
-volatile unsigned char *portH = (unsigned char *)0x102;
-volatile unsigned char *ddrH = (unsigned char *)0x101;
-volatile unsigned char *pinH = (unsigned char *)0x100;
+volatile unsigned char *portG = (unsigned char *)0x34;
+volatile unsigned char *ddrG = (unsigned char *)0x33;
+volatile unsigned char *pinG = (unsigned char *)0x32;
 
 // Prototypes
 void adcInit();
 unsigned int adcRead(unsigned char adcChannelNum);
 void displayWaterLevel(unsigned int waterLevel);
+static bool measureTempHumid();
+void tempFan();
+void TempLCD();
 
 // Global Variables
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
+bool fan_on = false;
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //Activates lcd
+#define ENABLE 5
+#define DIRA 3
+#define DIRB 4
+
+LiquidCrystal lcd(22, 23, 24, 25, 26, 27); //Activates lcd
 dht DHT;
-#define dht_apin A0
+#define dht_apin 8
 
 void setup()
 {
+
+  //  // Set both pins 5 and 3 to output (for fan)
+  //  *ddrE |= 0x28;
+  //  // Set pin 4 to output (for fan)
+  //  *ddrG |= 0x20;
+  //
+  //  // one way fan direction and enable off
+  //  *portE |= 0x08;
+  //
+  //  // Set pin 4 low
+  //  *portG &= 0xDF;
+
+  pinMode(ENABLE, OUTPUT);
+  pinMode(DIRA, OUTPUT);
+  pinMode(DIRB, OUTPUT);
+
+  digitalWrite(DIRA, HIGH); //one way
+  digitalWrite(DIRB, LOW);
+  digitalWrite(ENABLE, LOW); // enable off
+
   // set up the ADC
-  adcInit();
+  //adcInit();
   Serial.begin(9600);
   lcd.begin(16, 2);
 
@@ -57,26 +85,61 @@ void loop()
 {
 
   // Get the reading from the ADC
-  unsigned int waterLevel = adcRead(0);
+  //unsigned int waterLevel = adcRead(0);
 
   // Delay
   //delay(100);
 
-  // reads in the water level and displays it
-  displayWaterLevel(waterLevel);
+  // reads in the water level and displays it//
+  //displayWaterLevel(waterLevel);
+  tempFan();
 
-  int chk = DHT.read11(dht_apin);
-  lcd.setCursor(0, 0);
-  lcd.print("Temp: ");
-  lcd.print(DHT.temperature);
-  lcd.print((char)223);
-  lcd.print("C");
-  lcd.setCursor(0, 1);
-  lcd.print("Humidity: ");
-  lcd.print(DHT.humidity);
-  lcd.print("%");
-  delay(2000);
+  //Displays temp/hum on lcd
+  TempLCD();
 }
+
+void tempFan()
+{
+  if (DHT.temperature > 23.00)
+  {
+    digitalWrite(ENABLE, HIGH);
+    // set pin 5 high, turn on fan
+    //*portE |= 0x08;
+    if (!fan_on)
+    {
+      Serial.println("High temperature - turn on fan");
+      fan_on = true;
+    }
+  }
+  else
+  {
+    digitalWrite(ENABLE, LOW);
+    // set pin 5 low, turn off fan
+    //*portE &= 0xF7;
+    if (fan_on)
+    {
+      Serial.println("Low temperature - turn off fan");
+      fan_on = false;
+    }
+  }
+}
+
+// static bool measureTempHumid()
+// {
+//   static unsigned long measurementTimestamp = millis();
+//
+//   /* Measure once every four seconds. */
+//   if (millis() - measurementTimestamp > 3000ul)
+//   {
+//     if (DHT.measure(DHT.temperature, DHT.humidity) == true)
+//     {
+//       measurementTimestamp = millis();
+//       return true;
+//     }
+//   }
+//
+//   return false;
+// }
 
 void adcInit()
 {
@@ -140,5 +203,20 @@ void displayWaterLevel(unsigned int waterLevel)
   }
 
   // Delay
+  delay(1000);
+}
+
+void TempLCD()
+{
+  int chk = DHT.read11(dht_apin);
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(DHT.temperature);
+  lcd.print((char)223);
+  lcd.print("C");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(DHT.humidity);
+  lcd.print("%");
   delay(1000);
 }
