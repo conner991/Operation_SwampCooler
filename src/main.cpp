@@ -165,7 +165,6 @@ void displayWaterLevel(unsigned int waterLevel)
   {
     Serial.println("Water Level: LOW");
     Serial.println(waterLevel);
-    *portB = 0x40;
     digitalWrite(ENABLE, LOW);
     lcd.setCursor(0, 0);
     lcd.print("Water level: ");
@@ -177,7 +176,6 @@ void displayWaterLevel(unsigned int waterLevel)
   {
     Serial.println("Water Level: Okay");
     Serial.println(waterLevel);
-    *portB = 0x20;
     int chk = DHT.read11(dht_apin);
   }
   delay(1000);
@@ -187,13 +185,13 @@ void enabledState()
 {
   Serial.println("\nSystem is enabled");
   unsigned int waterLevel = adcRead(0);
-  if (DHT.temperature < 24 && waterLevel > 100) {
+  if (DHT.temperature < 22 && waterLevel > 100) {
     idleState();
   }
   else if (waterLevel <= 100) {
     errorState();
   }
-  else if (DHT.temperature > 0 && waterLevel > 100) {
+  else if (DHT.temperature >= 22 && waterLevel > 100) {
     runningState();
   }
 }
@@ -229,7 +227,7 @@ void idleState()
 
 void tempFan()
 {
-  if (DHT.temperature > 23.00)
+  if (DHT.temperature >= 22.00)
   {
     digitalWrite(ENABLE, HIGH);
     // set pin 5 high, turn on fan
