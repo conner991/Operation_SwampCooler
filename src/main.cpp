@@ -37,7 +37,8 @@ void enabledState();
 void errorState();
 void idleState();
 static bool measureTempHumid();
-void realTimeClock(); //realTimeClock
+void realTimeClockOff(); //realTimeClock
+void realTimeClockOn(); //realTimeClock
 void runningState();
 void tempFan();
 void tempLCD();
@@ -206,6 +207,7 @@ void errorState()
   Serial.println(waterLevel);
   *portB = 0x40; //Turns on Red LED
   digitalWrite(ENABLE, LOW); //Fan off
+  realTimeClockOff();
   lcd.setCursor(0, 0);
   lcd.print("ERROR           ");
   lcd.setCursor(0, 1);
@@ -232,7 +234,7 @@ void tempFan()
     digitalWrite(ENABLE, HIGH);
     // set pin 5 high, turn on fan
     //*portE |= 0x08;
-    realTimeClock();
+    realTimeClockOn();
     if (!fan_on)
     {
       Serial.println("High temperature - turn on fan");
@@ -242,7 +244,7 @@ void tempFan()
   else
   {
     digitalWrite(ENABLE, LOW);
-    realTimeClock();
+    realTimeClockOff();
     // set pin 5 low, turn off fan
     //*portE &= 0xF7;
     if (fan_on)
@@ -268,13 +270,36 @@ void tempLCD()
   delay(1000);
 }
 
-void realTimeClock()
+void realTimeClockOff()
 {
   dt = clock.getDateTime();
 
   // For leading zero look to DS3231_dateformat example
 
-  Serial.print("Current Time: ");
+  Serial.print("The motor turned off at time: ");
+  Serial.print(dt.year);
+  Serial.print("-");
+  Serial.print(dt.month);
+  Serial.print("-");
+  Serial.print(dt.day);
+  Serial.print(" ");
+  Serial.print(dt.hour);
+  Serial.print(":");
+  Serial.print(dt.minute);
+  Serial.print(":");
+  Serial.print(dt.second);
+  Serial.println("");
+
+  delay(1000);
+}
+
+void realTimeClockOn()
+{
+  dt = clock.getDateTime();
+
+  // For leading zero look to DS3231_dateformat example
+
+  Serial.print("The motor turned on at time: ");
   Serial.print(dt.year);
   Serial.print("-");
   Serial.print(dt.month);
