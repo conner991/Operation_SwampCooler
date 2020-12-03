@@ -31,11 +31,16 @@ volatile unsigned char *pinG = (unsigned char *)0x32;
 // Prototypes
 void adcInit();
 unsigned int adcRead(unsigned char adcChannelNum);
+void disabledState();
 void displayWaterLevel(unsigned int waterLevel);
+void enabledState();
+void errorState();
+void idleState();
 static bool measureTempHumid();
+void realTimeClock(); //realTimeClock
+void runningState();
 void tempFan();
-void TempLCD();
-void RTC(); //RTC
+void tempLCD();
 
 // Global Variables
 unsigned int waterLevel = 0;
@@ -88,7 +93,7 @@ void setup()
   //pushbotton input
   pinMode(38, INPUT);
 
-  //RTC Clock
+  //realTimeClock Clock
   clock.begin();
   clock.setDateTime(__DATE__, __TIME__);
 }
@@ -98,84 +103,13 @@ void loop()
   static int buttonState = digitalRead(38);
   buttonState += digitalRead(38);
   delay(1000);
-  if (buttonState % 2 == 1) {
-    Serial.println("\nSystem is enabled");
-    unsigned int waterLevel = adcRead(0);
-    displayWaterLevel(waterLevel);
-    if (DHT.temperature < 24 && waterLevel > 100) {
-      Serial.println("Idle State");
-      *portB = 0x20;
-      //unsigned int waterLevel = adcRead(0); // Get the reading from the ADC
-      displayWaterLevel(waterLevel); // reads in the water level and displays it//
-      digitalWrite(ENABLE, LOW); //Fan off
-      TempLCD();
-    }
-    else if (waterLevel <= 100) {
-      Serial.println("\nError State");
-      *portB = 0x40; //Turns on Red LED
-      Serial.println("Water Level: LOW");
-      Serial.println(waterLevel);
-      *portB = 0x40; //Turns on Red LED
-      digitalWrite(ENABLE, LOW); //Fan off
-      lcd.setCursor(0, 0);
-      lcd.print("Water level: ");
-      lcd.setCursor(0, 1);
-      lcd.print("LOW             ");
-    }
-    else if (DHT.temperature > 0 && waterLevel > 100) {
-      Serial.println("\nRunning State");
-      *portB = 0x10; //Turns on Blue LED
-      tempFan(); //Turns on fan
-      displayWaterLevel(waterLevel);
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Temp: ");
-      lcd.print(DHT.temperature);
-      lcd.print((char)223);
-      lcd.print("C");
-      lcd.setCursor(0, 1);
-      lcd.print("Humidity: ");
-      lcd.print(DHT.humidity);
-      lcd.print("%");
-      delay(1000);
-    }
-
+  if (buttonState % 2 == 0) {
+    disabledState();
   }
   else {
-    Serial.println("\nSystem is disabled");
-    *portB = 0x80; //Lights up yellow LED
-    lcd.clear(); //Clears lcd screen
-    digitalWrite(ENABLE, LOW); //Turns off fan
+    enabledState();
   }
   delay(1000);
-}
-
-void tempFan()
-{
-  if (DHT.temperature > 23.00)
-  {
-    digitalWrite(ENABLE, HIGH);
-    // set pin 5 high, turn on fan
-    //*portE |= 0x08;
-    RTC();
-    if (!fan_on)
-    {
-      Serial.println("High temperature - turn on fan");
-      fan_on = true;
-    }
-  }
-  else
-  {
-    digitalWrite(ENABLE, LOW);
-    RTC();
-    // set pin 5 low, turn off fan
-    //*portE &= 0xF7;
-    if (fan_on)
-    {
-      Serial.println("Low temperature - turn off fan");
-      fan_on = false;
-    }
-  }
 }
 
 void adcInit()
@@ -215,10 +149,18 @@ unsigned int adcRead(unsigned char adcChannelNum)
   return *myADCDATA; // return the result in the ADC data register
 }
 
+void disabledState()
+{
+  Serial.println("\nSystem is disabled");
+  *portB = 0x80; //Lights up yellow LED
+  lcd.clear(); //Clears lcd screen
+  digitalWrite(ENABLE, LOW); //Turns off fan
+}
+
 void displayWaterLevel(unsigned int waterLevel)
 {
   // Disabled State = Red LED
-  if (waterLevel >= 0 && waterLevel <= 240)
+  if (waterLevel >= 0 && waterLevel <= 100)
   {
     Serial.println("Water Level: LOW");
     Serial.println(waterLevel);
@@ -236,25 +178,80 @@ void displayWaterLevel(unsigned int waterLevel)
     Serial.println(waterLevel);
     *portB = 0x20;
     int chk = DHT.read11(dht_apin);
-
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Temp: ");
-    lcd.print(DHT.temperature);
-    lcd.print((char)223);
-    lcd.print("C");
-    lcd.setCursor(0, 1);
-    lcd.print("Humidity: ");
-    lcd.print(DHT.humidity);
-    lcd.print("%");
-    delay(1000);
   }
-
-  // Delay
   delay(1000);
 }
 
-void TempLCD()
+void enabledState()
+{
+  Serial.println("\nSystem is enabled");
+  unsigned int waterLevel = adcRead(0);
+  if (DHT.temperature < 24 && waterLevel > 100) {
+    idleState();
+  }
+  else if (waterLevel <= 100) {
+    errorState();
+  }
+  else if (DHT.temperature > 0 && waterLevel > 100) {
+    runningState();
+  }
+}
+
+void errorState()
+{
+  unsigned int waterLevel = adcRead(0);
+  Serial.println("Error State");
+  *portB = 0x40; //Turns on Red LED
+  Serial.println("Water Level: LOW");
+  Serial.println(waterLevel);
+  *portB = 0x40; //Turns on Red LED
+  digitalWrite(ENABLE, LOW); //Fan off
+  lcd.setCursor(0, 0);
+  lcd.print("Water level: ");
+  lcd.setCursor(0, 1);
+  lcd.print("LOW             ");
+}
+
+void idleState()
+{
+  unsigned int waterLevel = adcRead(0);
+  Serial.println("Idle State");
+  *portB = 0x20;
+  //unsigned int waterLevel = adcRead(0); // Get the reading from the ADC
+  displayWaterLevel(waterLevel); // reads in the water level and displays it//
+  digitalWrite(ENABLE, LOW); //Fan off
+  tempLCD();
+}
+
+void tempFan()
+{
+  if (DHT.temperature > 23.00)
+  {
+    digitalWrite(ENABLE, HIGH);
+    // set pin 5 high, turn on fan
+    //*portE |= 0x08;
+    realTimeClock();
+    if (!fan_on)
+    {
+      Serial.println("High temperature - turn on fan");
+      fan_on = true;
+    }
+  }
+  else
+  {
+    digitalWrite(ENABLE, LOW);
+    realTimeClock();
+    // set pin 5 low, turn off fan
+    //*portE &= 0xF7;
+    if (fan_on)
+    {
+      Serial.println("Low temperature - turn off fan");
+      fan_on = false;
+    }
+  }
+}
+
+void tempLCD()
 {
   int chk = DHT.read11(dht_apin);
   lcd.setCursor(0, 0);
@@ -269,7 +266,7 @@ void TempLCD()
   delay(1000);
 }
 
-void RTC()
+void realTimeClock()
 {
   dt = clock.getDateTime();
 
@@ -289,5 +286,15 @@ void RTC()
   Serial.print(dt.second);
   Serial.println("");
 
+  delay(1000);
+}
+
+void runningState()
+{
+  unsigned int waterLevel = adcRead(0);
+  Serial.println("Running State");
+  *portB = 0x10; //Turns on Blue LED
+  tempFan(); //Turns on fan
+  displayWaterLevel(waterLevel);
   delay(1000);
 }
