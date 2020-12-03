@@ -26,10 +26,12 @@ volatile unsigned char *portF = (unsigned char *)0x31;
 volatile unsigned char *ddrF = (unsigned char *)0x30;
 volatile unsigned char *pinF = (unsigned char *)0x2F;
 
+// Fan pointers
 volatile unsigned char *portE = (unsigned char *)0x2E;
 volatile unsigned char *ddrE = (unsigned char *)0x2D;
 volatile unsigned char *pinE = (unsigned char *)0x2C;
 
+// Fan pointers
 volatile unsigned char *portG = (unsigned char *)0x34;
 volatile unsigned char *ddrG = (unsigned char *)0x33;
 volatile unsigned char *pinG = (unsigned char *)0x32;
@@ -62,24 +64,24 @@ RTCDateTime dt;
 void setup()
 {
 
-  //  // Set both pins 5 and 3 to output (for fan)
-  //  *ddrE |= 0x28;
-  //  // Set pin 4 to output (for fan)
-  //  *ddrG |= 0x20;
-  //
-  //  // one way fan direction and enable off
-  //  *portE |= 0x08;
-  //
-  //  // Set pin 4 low
-  //  *portG &= 0xDF;
+  // Set both pins 5 and 3 to output (for fan)
+  *ddrE = 0x28;
+  // Set pin 4 to output (for fan)
+  *ddrG = 0x20;
 
-  pinMode(ENABLE, OUTPUT);
-  pinMode(DIRA, OUTPUT);
-  pinMode(DIRB, OUTPUT);
+  // one way fan direction and enable off
+  *portE = 0x08;
 
-  digitalWrite(DIRA, HIGH); //one way
-  digitalWrite(DIRB, LOW);
-  digitalWrite(ENABLE, LOW); // enable off
+  // Set pin 4 low
+  *portG = 0xDF;
+
+  //   pinMode(5, OUTPUT);
+  //   pinMode(4, OUTPUT);
+  //   pinMode(3, OUTPUT);
+  //
+  //   digitalWrite(5, LOW); // enable off
+  //   digitalWrite(4, LOW);
+  //   digitalWrite(3, HIGH); //one way
 
   adcInit(); // set up the ADC
   Serial.begin(9600);
@@ -164,9 +166,9 @@ void tempFan()
 {
   if (DHT.temperature > 23.00)
   {
-    digitalWrite(ENABLE, HIGH);
+    //digitalWrite(ENABLE, HIGH);
     // set pin 5 high, turn on fan
-    //*portE |= 0x08;
+    *portE = 0x08;
     RTC();
     if (!fan_on)
     {
@@ -176,10 +178,10 @@ void tempFan()
   }
   else
   {
-    digitalWrite(ENABLE, LOW);
+    //digitalWrite(ENABLE, LOW);
     RTC();
     // set pin 5 low, turn off fan
-    //*portE &= 0xF7;
+    *portE = 0xF7;
     if (fan_on)
     {
       Serial.println("Low temperature - turn off fan");
