@@ -4,6 +4,7 @@
 #include <Wire.h>
 //#include <SimpleDHT.h>
 #include <dht.h>
+#include <DS3231.h>
 
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
 volatile unsigned char *myADCSRB = (unsigned char *)0x7B;
@@ -34,6 +35,7 @@ void displayWaterLevel(unsigned int waterLevel);
 static bool measureTempHumid();
 void tempFan();
 void TempLCD();
+void RTC(); //RTC
 
 // Global Variables
 unsigned int waterLevel = 0;
@@ -47,6 +49,9 @@ bool fan_on = false;
 LiquidCrystal lcd(22, 23, 24, 25, 26, 27); //Activates lcd
 dht DHT;
 #define dht_apin 8
+
+DS3231 clock;
+RTCDateTime dt;
 
 void setup()
 {
@@ -70,9 +75,9 @@ void setup()
   digitalWrite(DIRB, LOW);
   digitalWrite(ENABLE, LOW); // enable off
 
-  // set up the ADC
-  adcInit();
+  adcInit();// set up the ADC
   Serial.begin(9600);
+
   lcd.begin(16, 2);
 
   // set PB7 to output lights
@@ -82,6 +87,10 @@ void setup()
 
   //pushbotton input
   pinMode(38, INPUT);
+
+  //RTC Clock
+  clock.begin();
+  clock.setDateTime(__DATE__, __TIME__);
 }
 
 void loop()
@@ -89,22 +98,54 @@ void loop()
   static int buttonState = digitalRead(38);
   buttonState += digitalRead(38);
   delay(1000);
-  if (buttonState%2 == 1){
-    Serial.println("System is enabled");
-  // Get the reading from the ADC
-  unsigned int waterLevel = adcRead(0);
+  if (buttonState % 2 == 1) {
+    Serial.println("\nSystem is enabled");
+    unsigned int waterLevel = adcRead(0);
+    displayWaterLevel(waterLevel);
+    if (DHT.temperature < 24 && waterLevel > 100) {
+      Serial.println("Idle State");
+      *portB = 0x20;
+      //unsigned int waterLevel = adcRead(0); // Get the reading from the ADC
+      displayWaterLevel(waterLevel); // reads in the water level and displays it//
+      digitalWrite(ENABLE, LOW); //Fan off
+      TempLCD();
+    }
+    else if (waterLevel <= 100) {
+      Serial.println("\nError State");
+      *portB = 0x40; //Turns on Red LED
+      Serial.println("Water Level: LOW");
+      Serial.println(waterLevel);
+      *portB = 0x40; //Turns on Red LED
+      digitalWrite(ENABLE, LOW); //Fan off
+      lcd.setCursor(0, 0);
+      lcd.print("Water level: ");
+      lcd.setCursor(0, 1);
+      lcd.print("LOW             ");
+    }
+    else if (DHT.temperature > 0 && waterLevel > 100) {
+      Serial.println("\nRunning State");
+      *portB = 0x10; //Turns on Blue LED
+      tempFan(); //Turns on fan
+      displayWaterLevel(waterLevel);
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Temp: ");
+      lcd.print(DHT.temperature);
+      lcd.print((char)223);
+      lcd.print("C");
+      lcd.setCursor(0, 1);
+      lcd.print("Humidity: ");
+      lcd.print(DHT.humidity);
+      lcd.print("%");
+      delay(1000);
+    }
 
-  // reads in the water level and displays it//
-  displayWaterLevel(waterLevel);
-  tempFan();
-
-  //Displays temp/hum on lcd
-  //TempLCD();
   }
-  else{
-    Serial.println("System is disabled");
+  else {
+    Serial.println("\nSystem is disabled");
     *portB = 0x80; //Lights up yellow LED
     lcd.clear(); //Clears lcd screen
+    digitalWrite(ENABLE, LOW); //Turns off fan
   }
   delay(1000);
 }
@@ -116,16 +157,17 @@ void tempFan()
     digitalWrite(ENABLE, HIGH);
     // set pin 5 high, turn on fan
     //*portE |= 0x08;
+    RTC();
     if (!fan_on)
     {
       Serial.println("High temperature - turn on fan");
       fan_on = true;
-      *portB = 0x10;
     }
   }
   else
   {
     digitalWrite(ENABLE, LOW);
+    RTC();
     // set pin 5 low, turn off fan
     //*portE &= 0xF7;
     if (fan_on)
@@ -176,7 +218,7 @@ unsigned int adcRead(unsigned char adcChannelNum)
 void displayWaterLevel(unsigned int waterLevel)
 {
   // Disabled State = Red LED
-  if (waterLevel >= 0 && waterLevel <= 280)
+  if (waterLevel >= 0 && waterLevel <= 240)
   {
     Serial.println("Water Level: LOW");
     Serial.println(waterLevel);
@@ -224,5 +266,28 @@ void TempLCD()
   lcd.print("Humidity: ");
   lcd.print(DHT.humidity);
   lcd.print("%");
+  delay(1000);
+}
+
+void RTC()
+{
+  dt = clock.getDateTime();
+
+  // For leading zero look to DS3231_dateformat example
+
+  Serial.print("Current Time: ");
+  Serial.print(dt.year);
+  Serial.print("-");
+  Serial.print(dt.month);
+  Serial.print("-");
+  Serial.print(dt.day);
+  Serial.print(" ");
+  Serial.print(dt.hour);
+  Serial.print(":");
+  Serial.print(dt.minute);
+  Serial.print(":");
+  Serial.print(dt.second);
+  Serial.println("");
+
   delay(1000);
 }
