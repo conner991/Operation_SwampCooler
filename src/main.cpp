@@ -207,9 +207,11 @@ void errorState()
   *portB = 0x40; //Turns on Red LED
   digitalWrite(ENABLE, LOW); //Fan off
   lcd.setCursor(0, 0);
-  lcd.print("Water level: ");
+  lcd.print("ERROR           ");
   lcd.setCursor(0, 1);
-  lcd.print("LOW             ");
+  lcd.print("Water level: LOW");
+  delay(1000);
+  tempLCD();
 }
 
 void idleState()
@@ -298,4 +300,3 @@ void runningState()
   displayWaterLevel(waterLevel);
   delay(1000);
 }
-
