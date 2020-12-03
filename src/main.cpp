@@ -5,6 +5,12 @@
 //#include <SimpleDHT.h>
 #include <dht.h>
 
+/*
+1.) blue light turns on for 1 sec and then green light turns on right after
+2.) Low water vs temp thresold fan
+
+*/
+
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
 volatile unsigned char *myADCSRB = (unsigned char *)0x7B;
 volatile unsigned char *myADMUX = (unsigned char *)0x7C;
@@ -89,22 +95,24 @@ void loop()
   static int buttonState = digitalRead(38);
   buttonState += digitalRead(38);
   delay(1000);
-  if (buttonState%2 == 1){
+  if (buttonState % 2 == 1)
+  {
     Serial.println("System is enabled");
-  // Get the reading from the ADC
-  unsigned int waterLevel = adcRead(0);
+    // Get the reading from the ADC
+    unsigned int waterLevel = adcRead(0);
 
-  // reads in the water level and displays it//
-  displayWaterLevel(waterLevel);
-  tempFan();
+    // reads in the water level and displays it//
+    displayWaterLevel(waterLevel);
+    tempFan();
 
-  //Displays temp/hum on lcd
-  //TempLCD();
+    //Displays temp/hum on lcd
+    //TempLCD();
   }
-  else{
+  else
+  {
     Serial.println("System is disabled");
     *portB = 0x80; //Lights up yellow LED
-    lcd.clear(); //Clears lcd screen
+    lcd.clear();   //Clears lcd screen
   }
   delay(1000);
 }
