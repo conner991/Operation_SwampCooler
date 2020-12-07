@@ -1,25 +1,26 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
-//#include <Adafruit_Sensor.h>
 #include <Wire.h>
-//#include <SimpleDHT.h>
 #include <dht.h>
 #include <DS3231.h>
 
+// ADC pointers
 volatile unsigned char *myADCSRA = (unsigned char *)0x7A;
 volatile unsigned char *myADCSRB = (unsigned char *)0x7B;
 volatile unsigned char *myADMUX = (unsigned char *)0x7C;
 volatile unsigned int *myADCDATA = (unsigned int *)0x78;
 
-// LED Registers
+// State LED pointers
 volatile unsigned char *portB = (unsigned char *)0x25;
 volatile unsigned char *ddrB = (unsigned char *)0x24;
 volatile unsigned char *pinB = (unsigned char *)0x23;
+
+// Vent Movement LED pointers
 volatile unsigned char *portH = (unsigned char *)0x102;
 volatile unsigned char *ddrH = (unsigned char *)0x101;
 volatile unsigned char *pinH = (unsigned char *)0x100;
 
-// Power Button Registers
+// Power Button pointers
 volatile unsigned char *portD = (unsigned char *)0x2B;
 volatile unsigned char *ddrD = (unsigned char *)0x2A;
 volatile unsigned char *pinD = (unsigned char *)0x29;
@@ -54,6 +55,7 @@ void ventLeftRight();
 unsigned int waterLevel = 0;
 unsigned int tempValue = 0;
 bool fan_on = false;
+bool buttonEnabled = false;
 
 #define ENABLE 5
 #define DIRA 3
@@ -66,16 +68,16 @@ dht DHT;
 DS3231 clock;
 RTCDateTime dt;
 
-float floatMap(float x, float in_min, float in_max, float out_min, float out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
+//////////////////////////
+// setup Function
+//////////////////////////
 void setup()
 {
 
-  //pushbotton Set Up for input
-  //*ddrD = 0x7F;
-  pinMode(38, INPUT);
+  //set PD7 for input
+  *ddrD &= 0x7F;
+  //enable pull up resistor on PD7
+  *portD |= 0x80;
 
   // set PB7 to output LED lights
   *ddrB = 0xF0;
@@ -91,17 +93,11 @@ void setup()
   // Set pin 4 low
   *portG = 0xDF;
 
-  //   pinMode(5, OUTPUT);
-  //   pinMode(4, OUTPUT);
-  //   pinMode(3, OUTPUT);
-  //
-  //   digitalWrite(5, LOW); // enable off
-  //   digitalWrite(4, LOW);
-  //   digitalWrite(3, HIGH); //one way
-
-  adcInit(); // set up the ADC
+  // initialize the ADC
+  adcInit();
   Serial.begin(9600);
 
+  // Initialize the LCD Display
   lcd.begin(16, 2);
 
   //realTimeClock Clock
@@ -109,33 +105,51 @@ void setup()
   clock.setDateTime(__DATE__, __TIME__);
 }
 
+//////////////////////////
+// loop Function
+//////////////////////////
 void loop()
 {
-  //  static int buttonState;
-  //
-  //  if (*pinD & 0x80)
-  //  {
-  //    buttonState = (*pinD = );
-  //  }
-  //
-  //  else
-  //  {
-  //    buttonState = 0;
-  //  }
-
-  static int buttonState = digitalRead(38);
-  buttonState += digitalRead(38);
-  if (buttonState % 2 == 0)
+  // If PD7 reads in a 0 (button pressed)
+  if (!(*pinD & 0x80))
   {
-    disabledState();
+    // for loop for debouncing
+    for (volatile unsigned int i = 0; i < 1000; i++)
+      ;
+
+    if (!(*pinD & 0x80))
+    {
+
+      if (!buttonEnabled)
+      {
+        buttonEnabled = true;
+      }
+      else
+      {
+        buttonEnabled = false;
+      }
+
+      // Wait for input signal to finish
+      while (!(*pinD & 0x80))
+        ;
+    }
   }
-  else
+
+  if (buttonEnabled)
   {
     enabledState();
   }
+  else
+  {
+    disabledState();
+  }
+
   delay(1000);
 }
 
+//////////////////////////
+// adcInit Function
+//////////////////////////
 void adcInit()
 {
   // Set up the A register
@@ -155,6 +169,9 @@ void adcInit()
   *myADMUX &= 0xE0; // clear bits 4-0 to 0 to reset the channel and gain bits
 }
 
+//////////////////////////
+// adcRead Function
+//////////////////////////
 unsigned int adcRead(unsigned char adcChannelNum)
 {
   *myADMUX &= 0xE0;      // clear the channel selection bits (MUX 4:0)
@@ -173,6 +190,36 @@ unsigned int adcRead(unsigned char adcChannelNum)
   return *myADCDATA; // return the result in the ADC data register
 }
 
+//////////////////////////
+// enabledState Function
+//////////////////////////
+void enabledState()
+{
+  Serial.println("\nSystem is enabled");
+  unsigned int waterLevel = adcRead(1);
+
+  if (DHT.temperature <= 20.00 && waterLevel > 100)
+  {
+    idleState();
+  }
+  else if (DHT.temperature >= 21.00 && waterLevel > 100)
+  {
+    runningState();
+  }
+  else if (waterLevel <= 100)
+  {
+    errorState();
+  }
+
+  else
+  {
+    //Does nothing
+  }
+}
+
+//////////////////////////
+// disabledState Function
+//////////////////////////
 void disabledState()
 {
   Serial.println("\nSystem is disabled");
@@ -180,71 +227,55 @@ void disabledState()
   lcd.clear();   //Clears lcd screen
   // set pin 5 low, turn off fan
   *portE = 0xF7;
-  //digitalWrite(ENABLE, LOW); //Turns off fan
 }
 
-void displayWaterLevel(unsigned int waterLevel)
+//////////////////////////
+// idleState Function
+//////////////////////////
+void idleState()
 {
-  // Disabled State = Red LED
-  if (waterLevel >= 0 && waterLevel <= 100)
-  {
-    Serial.println("Water Level: LOW");
-    Serial.println(waterLevel);
-    //*portB = 0x40;
-    // set pin 5 low, turn off fan
-    *portE = 0xF7;
-    //digitalWrite(ENABLE, LOW);
-    lcd.setCursor(0, 0);
-    lcd.print("Water level: ");
-    lcd.setCursor(0, 1);
-    lcd.print("LOW             ");
-  }
-  // Idle State = Green LED
-  else
-  {
-    Serial.println("Water Level: Okay");
-    Serial.println(waterLevel);
-  }
+  unsigned int waterLevel = adcRead(1);
+  Serial.println("Idle State");
+  // Turn on Green LED
+  *portB = 0x20;
+  displayWaterLevel(waterLevel); // reads in the water level and displays it//
+  // set pin 5 low, turn off fan
+  *portE = 0xF7;
+  tempLCD();
+  ventLeftRight();
 }
 
-void enabledState()
+//////////////////////////
+// runningState Function
+//////////////////////////
+void runningState()
 {
-  Serial.println("\nSystem is enabled");
-  unsigned int waterLevel = adcRead(0);
-  if (DHT.temperature < 24 && waterLevel > 100)
-  {
-    idleState();
-  }
-  else if (waterLevel <= 100)
-  {
-    errorState();
-  }
-  else if (DHT.temperature >= 24 && waterLevel > 100)
-  {
-    runningState();
-  }
-  else 
-  {
-    //Does nothing
-  }
+  unsigned int waterLevel = adcRead(1);
+  Serial.println("Running State");
+  *portB = 0x10; //Turns on Blue LED
+  tempFan();     //Turns on fan
+  displayWaterLevel(waterLevel);
+  ventLeftRight();
+  tempLCD();
 }
 
+//////////////////////////
+// errorState Function
+//////////////////////////
 void errorState()
 {
-  unsigned int waterLevel = adcRead(0);
+  unsigned int waterLevel = adcRead(1);
   Serial.println("Error State");
   *portB = 0x40; //Turns on Red LED
   Serial.println("Water Level: LOW");
-  Serial.println(waterLevel);
   *portB = 0x40; //Turns on Red LED
   // set pin 5 low, turn off fan
   *portE = 0xF7;
-  //digitalWrite(ENABLE, LOW); //Fan off
   if (fan_on)
-    {
-      realTimeClockOff();
-      fan_on = false;
-    }
+  {
+    realTimeClockOff();
+    fan_on = false;
+  }
   ventLeftRight();
   lcd.setCursor(0, 0);
   lcd.print("ERROR           ");
@@ -254,20 +285,9 @@ void errorState()
   tempLCD();
 }
 
-void idleState()
-{
-  unsigned int waterLevel = adcRead(0);
-  Serial.println("Idle State");
-  *portB = 0x20;
-  //unsigned int waterLevel = adcRead(0); // Get the reading from the ADC
-  displayWaterLevel(waterLevel); // reads in the water level and displays it//
-  // set pin 5 low, turn off fan
-  *portE = 0xF7;
-  //digitalWrite(ENABLE, LOW);     //Fan off
-  tempLCD();
-  ventLeftRight();
-}
-
+//////////////////////////
+// realTimeClockOff Function
+//////////////////////////
 void realTimeClockOff()
 {
   dt = clock.getDateTime();
@@ -287,6 +307,9 @@ void realTimeClockOff()
   Serial.println("");
 }
 
+//////////////////////////
+// realTimeClockOn Function
+//////////////////////////
 void realTimeClockOn()
 {
   dt = clock.getDateTime();
@@ -306,46 +329,59 @@ void realTimeClockOn()
   Serial.println("");
 }
 
-void runningState()
+//////////////////////////
+// displayWaterLevel Function
+//////////////////////////
+void displayWaterLevel(unsigned int waterLevel)
 {
-  unsigned int waterLevel = adcRead(0);
-  Serial.println("Running State");
-  *portB = 0x10; //Turns on Blue LED
-  tempFan();     //Turns on fan
-  displayWaterLevel(waterLevel);
-  ventLeftRight();
-  tempLCD();
+  // Disabled State = Red LED
+  if (waterLevel >= 0 && waterLevel <= 100)
+  {
+    Serial.println("Water Level: LOW");
+    // set pin 5 low, turn off fan
+    *portE = 0xF7;
+    lcd.setCursor(0, 0);
+    lcd.print("Water level: ");
+    lcd.setCursor(0, 1);
+    lcd.print("LOW             ");
+  }
+  // Idle State = Green LED
+  else
+  {
+    Serial.println("Water Level: Okay");
+  }
 }
 
+//////////////////////////
+// tempFan Function
+//////////////////////////
 void tempFan()
 {
-  if (DHT.temperature >= 24)
+  if (DHT.temperature >= 21.00)
   {
-    //digitalWrite(ENABLE, HIGH);
     // set pin 5 high, turn on fan
     *portE |= 0x08;
     if (!fan_on)
     {
-      Serial.println("High temperature - turn on fan");
       fan_on = true;
       realTimeClockOn();
     }
   }
   else
   {
-    //digitalWrite(ENABLE, LOW);
     // set pin 5 low, turn off fan
     *portE &= 0xF7;
     if (fan_on)
     {
-      Serial.println("Low temperature - turn off fan");
       fan_on = false;
       realTimeClockOff();
     }
   }
 }
 
-
+//////////////////////////
+// tempLCD Function
+//////////////////////////
 void tempLCD()
 {
   int chk = DHT.read11(dht_apin);
@@ -360,37 +396,45 @@ void tempLCD()
   lcd.print("%");
 }
 
+//////////////////////////
+// ventLeftRight Function
+//////////////////////////
 void ventLeftRight()
 {
-    // read the input on analog pin A0:
-  int analogValue = adcRead(7);
+  // read the input on analog pin A0:
+  int analogValue = adcRead(6);
   // Rescale to potentiometer's voltage (from 0V to 5V):
   float voltage = floatMap(analogValue, 0, 1023, 0, 5);
 
-  // print out the value you read:
-  //Serial.print("Angle is at: ");
-  Serial.println((voltage*270)/5);
-  //Serial.println(" degrees");
-  if (((voltage*270)/5) == 0)
+  // print out the value you read
+  if (((voltage * 270) / 5) < 20)
   {
     Serial.print("Vent is not moving.\n");
   }
-  else if (((voltage*270)/5) > 0 && ((voltage*270)/5) < 40)
+  else if (((voltage * 270) / 5) > 20 && ((voltage * 270) / 5) < 40)
   {
     Serial.print("Vent is moving to the left.\n");
     *portH |= 0x08;
     delay(500);
     *portH &= 0xF7;
   }
-  else if (((voltage*270)/5) > 40 && ((voltage*270)/5) < 80)
+  else if (((voltage * 270) / 5) > 50 && ((voltage * 270) / 5) < 80)
   {
     Serial.print("Vent is moving to the right.\n");
     *portH |= 0x10;
     delay(500);
     *portH &= 0xEF;
   }
-  else 
+  else
   {
     //does nothhing
   }
+}
+
+//////////////////////////
+// floatMap Function
+//////////////////////////
+float floatMap(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
