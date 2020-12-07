@@ -57,10 +57,6 @@ unsigned int tempValue = 0;
 bool fan_on = false;
 bool buttonEnabled = false;
 
-#define ENABLE 5
-#define DIRA 3
-#define DIRB 4
-
 LiquidCrystal lcd(22, 23, 24, 25, 26, 27); //Activates lcd
 dht DHT;
 #define dht_apin 8
